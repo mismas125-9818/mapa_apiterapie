@@ -1,0 +1,19 @@
+.map# virtuálne prostredie
+.venv/
+env/
+
+# Python cache súbory
+__pycache__/
+*.pyc
+*.pyo
+
+# súbory IDE / editor
+.vscode/
+*.swp
+*.idea/
+
+# ďalšie dočasné súbory
+*.log
+*.db
+*.key
+*.crt
