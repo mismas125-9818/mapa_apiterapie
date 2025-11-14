@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa Pomoci</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+body { margin: 0; font-family: sans-serif; }
+#search-box { width: 100%; padding: 10px; font-size: 16px; border: none; border-bottom: 2px solid #666; outline: none; }
+#map { height: 90vh; width: 100%; }
+@media(max-width:600px){ #search-box{font-size:14px;} }
+</style>
+</head>
+<body>
+
+<input type="text" id="search-box" placeholder="Vyhľadaj meno, odbor alebo jazyk...">
+<div id="map"></div>
+
+<script>
+// Inicializácia mapy so stredom na Európu
+var map = L.map('map').setView([50.1109, 8.6821], 4); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'Map data © OpenStreetMap contributors'
+}).addTo(map);
+
+let allHelpers = [], markers = [], currentFilter = "";
+
+// načítanie pomocníkov z API
+async function loadHelpers(){
+    const res = await fetch("/api/helpers");
+    allHelpers = await res.json();
+    showMarkers(currentFilter); // použije aktuálny filter
+}
+
+// zobrazenie markerov podľa filtra
+function showMarkers(filter=""){
+    currentFilter = filter; // uloženie aktuálneho filtra
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    const filtered = allHelpers.filter(h =>
+        (h.meno && h.meno.toLowerCase().includes(filter.toLowerCase())) ||
+        (h.odbor && h.odbor.toLowerCase().includes(filter.toLowerCase())) ||
+        (h.jazyk && h.jazyk.toLowerCase().includes(filter.toLowerCase()))
+    );
+
+    filtered.forEach(h => {
+        const marker = L.marker([h.lat, h.lng]).addTo(map);
+        const gmapsUrl = `https://www.google.com/maps?q=${h.lat},${h.lng}`;
+        let fotoHtml = h.foto ? `<br><img src="static/fotky/${h.foto}" style="max-width:200px;">` : "";
+        marker.bindPopup(`
+            <b>${h.meno}</b><br>
+            ${h.odbor}<br>
+            ${h.jazyk ? '🌐 ' + h.jazyk + '<br>' : ''}
+            ${h.telefon ? '📞 ' + h.telefon + '<br>' : ''}
+            ${h.email ? '✉ ' + h.email + '<br>' : ''}
+            ${fotoHtml}
+            <a href="${gmapsUrl}" target="_blank">📍 Zobraziť v Mapách</a>
+        `);
+        markers.push(marker);
+    });
+}
+
+// input listener
+document.getElementById('search-box').addEventListener('input', e => showMarkers(e.target.value));
+
+// načítanie a automatická synchronizácia
+loadHelpers();
+setInterval(loadHelpers, 5000); // každých 5s
+</script>
+
+</body>
+</html>

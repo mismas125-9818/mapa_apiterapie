@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin – Správa mapy pomoci</title>
+<style>
+body { font-family:sans-serif;margin:2em; }
+form{display:flex;flex-direction:column;max-width:400px;gap:10px;margin-bottom:30px;}
+input,button{padding:8px;font-size:15px;}
+button{background:#007bff;color:white;border:none;cursor:pointer;}
+button:hover{background:#0056b3;}
+table{border-collapse:collapse;width:100%;margin-top:30px;}
+th,td{border:1px solid #ccc;padding:8px;text-align:left;}
+th{background:#eee;}
+.inline-form{display:inline-block;margin:0;}
+#status{font-size:14px;color:#555;}
+img.thumb{max-width:80px;max-height:80px;}
+</style>
+</head>
+<body>
+
+<h2>Pridaj nového pomocníka</h2>
+<form action="/api/add" method="post" enctype="multipart/form-data">
+<input type="text" name="meno" placeholder="Meno" required>
+<input type="text" name="odbor" placeholder="Odbor" required>
+<input type="text" name="telefon" placeholder="Telefón">
+<input type="email" name="email" placeholder="Email">
+<input type="text" name="jazyk" placeholder="Jazyk (napr. angličtina, nemčina)" required>
+<input type="file" name="foto" accept="image/*">
+<input type="text" id="adresa" placeholder="Adresa (napr. Námestie SNP, Bratislava)">
+<div style="display:flex;gap:10px;margin-bottom:10px;">
+  <button type="button" id="btn-geocode">Získať súradnice z adresy</button>
+  <button type="button" id="btn-locate">Použiť moju polohu</button>
+</div>
+
+<input type="number" step="any" name="lat" id="lat" placeholder="Zem. šírka (lat)" required>
+<input type="number" step="any" name="lng" id="lng" placeholder="Zem. dĺžka (lng)" required>
+
+<button type="submit">Pridať</button>
+</form>
+
+<p id="status"></p>
+
+<h2>Existujúci pomocníci</h2>
+<table>
+<tr><th>Meno</th><th>Odbor</th><th>Lat</th><th>Lng</th><th>Telefon</th><th>Email</th><th>Jazyk</th><th>Foto</th><th>Akcie</th></tr>
+{% for h in helpers %}
+<tr>
+<td>{{ h.meno }}</td>
+<td>{{ h.odbor }}</td>
+<td>
+<form action="/api/update/{{h.id}}" method="post" class="inline-form" enctype="multipart/form-data">
+<input type="number" step="any" name="lat" value="{{h.lat}}" required>
+</td>
+<td>
+<input type="number" step="any" name="lng" value="{{h.lng}}" required>
+</td>
+<td>
+<input type="text" name="telefon" value="{{h.telefon}}">
+</td>
+<td>
+<input type="email" name="email" value="{{h.email}}">
+</td>
+<td>
+<input type="text" name="jazyk" value="{{h.jazyk}}">
+</td>
+<td>
+{% if h.foto %}
+<img src="static/fotky/{{ h.foto }}" class="thumb"><br>
+{% endif %}
+<input type="file" name="foto" accept="image/*">
+</td>
+<td>
+<button type="submit">Upraviť</button>
+</form>
+<form action="/api/delete/{{h.id}}" method="post" class="inline-form">
+<button type="submit" style="background:red;">Zmazať</button>
+</form>
+</td>
+</tr>
+{% endfor %}
+</table>
+
+<script>
+const latInput = document.getElementById('lat');
+const lngInput = document.getElementById('lng');
+const statusText = document.getElementById('status');
+
+document.getElementById('btn-locate').addEventListener('click', () => {
+    statusText.textContent = "Zisťujem polohu...";
+    if (!navigator.geolocation) { statusText.textContent = "Geolokácia nie je podporovaná."; return; }
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            latInput.value = pos.coords.latitude.toFixed(6);
+            lngInput.value = pos.coords.longitude.toFixed(6);
+            statusText.textContent = `Poloha zistená ✅ (${latInput.value}, ${lngInput.value})`;
+        },
+        err => { statusText.textContent = "Nepodarilo sa získať polohu."; console.error(err); }
+    );
+});
+
+document.getElementById('btn-geocode').addEventListener('click', async () => {
+    const adresa = document.getElementById('adresa').value.trim();
+    if (!adresa) { statusText.textContent = "Zadaj adresu."; return; }
+    statusText.textContent = "Hľadám adresu...";
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(adresa)}`);
+        const data = await res.json();
+        if (data.length === 0) { statusText.textContent = "Adresa sa nenašla ❌"; return; }
+        latInput.value = parseFloat(data[0].lat).toFixed(6);
+        lngInput.value = parseFloat(data[0].lon).toFixed(6);
+        statusText.textContent = `Adresa nájdená ✅ (${latInput.value}, ${lngInput.value})`;
+    } catch (err) { console.error(err); statusText.textContent = "Chyba pri hľadaní adresy."; }
+});
+</script>
+</body>
+</html>
